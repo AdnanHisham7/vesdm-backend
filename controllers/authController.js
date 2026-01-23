@@ -4,6 +4,7 @@ const jwt = require("jsonwebtoken");
 
 const setup = async (req, res) => {
   const { email, password, name } = req.body;
+  console.log(email, password, name);
   if (!email || !password)
     return res.status(400).json({ msg: "Provide email and password" });
 
@@ -41,4 +42,24 @@ const login = async (req, res) => {
   });
 };
 
-module.exports = { setup, login };
+const getMe = async (req, res) => {
+  try {
+    // req.user is set by protect middleware
+    const user = await User.findById(req.user._id).select("-password");
+    if (!user) {
+      return res.status(404).json({ msg: "User not found" });
+    }
+    res.json({
+      user: { 
+        id: user._id, 
+        email: user.email, 
+        name: user.name, 
+        role: user.role 
+      },
+    });
+  } catch (err) {
+    res.status(500).json({ msg: "Server error" });
+  }
+};
+
+module.exports = { setup, login, getMe };
