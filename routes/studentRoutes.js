@@ -14,6 +14,8 @@ const {
   publishResult,
   verifyCertificate,
   studentAccess,
+  enrollExistingStudent,
+  getCourseStudents,
 } = require("../controllers/studentController");
 const { protect, franchiseeOrAdmin } = require("../middleware/auth");
 
@@ -63,5 +65,7 @@ router.post(
 );
 router.post("/:id/register-exam", protect, franchiseeOrAdmin, registerExam);
 router.post("/:id/publish-result", protect, franchiseeOrAdmin, publishResult);
+router.post("/enroll-existing", protect, franchiseeOrAdmin, enrollExistingStudent);
+router.get("/course/:courseId/students", protect, franchiseeOrAdmin, getCourseStudents);
 
 module.exports = router;

@@ -1,24 +1,44 @@
-const mongoose = require('mongoose');
+const mongoose = require("mongoose");
 
 const studentSchema = new mongoose.Schema({
   registrationNumber: { type: String, unique: true },
   name: { type: String, required: true },
   email: { type: String },
   phone: { type: String },
-  course: { type: mongoose.Schema.Types.ObjectId, ref: 'Course', required: true },
-  year: { type: Number },
+  password: { type: String },
+  user: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "User",
+    unique: true,
+    sparse: true,
+  },
   enrollmentDate: { type: Date, default: Date.now },
-  franchisee: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
+  enrolledCourses: [
+    {
+      course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
+      enrollmentDate: { type: Date, default: Date.now },
+      progress: { type: Number, default: 0 },
+      status: { type: String, default: "ongoing" }, // ongoing, completed
+      completedDate: { type: Date },
+      certificate: {
+        file: String,
+        issueDate: Date,
+        number: String,
+      },
+    },
+  ],
+  year: { type: Number },
+  franchisee: { type: mongoose.Schema.Types.ObjectId, ref: "User" },
   documents: [{ type: String }],
-  certificate: { type: String },
-  marklist: { type: String },
-  exams: [{
-    examName: { type: String },
-    registered: { type: Boolean, default: false },
-    marks: { type: Number },
-    grade: { type: String },
-    publishedDate: { type: Date }
-  }]
+  exams: [
+    {
+      examId: { type: mongoose.Schema.Types.ObjectId, ref: "Exam" },
+      marks: { type: Number },
+      grade: { type: String },
+      publishedDate: { type: Date },
+      course: { type: mongoose.Schema.Types.ObjectId, ref: "Course" },
+    },
+  ],
 });
 
-module.exports = mongoose.model('Student', studentSchema);
+module.exports = mongoose.model("Student", studentSchema);

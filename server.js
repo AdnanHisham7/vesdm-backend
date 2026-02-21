@@ -11,11 +11,11 @@ dotenv.config();
 const app = express();
 
 // HTTP request logger
-if (process.env.NODE_ENV === 'development') {
-  app.use(morgan('dev'));
-} else {
-  app.use(morgan('combined'));
-}
+// if (process.env.NODE_ENV === 'development') {
+//   app.use(morgan('dev'));
+// } else {
+//   app.use(morgan('combined'));
+// }
 
 // CORS configuration to allow credentials
 const allowedOrigins = process.env.ALLOWED_ORIGINS 
@@ -39,12 +39,17 @@ if (!fs.existsSync(uploadDir)) {
 app.use('/uploads', express.static(uploadDir));
 
 // Routes
-app.use('/api/auth', require('./routes/auth'));
-app.use('/api/courses', require('./routes/courses'));
-app.use('/api/students', require('./routes/students'));
-app.use('/api/applications', require('./routes/applications'));
-app.use('/api/inquiries', require('./routes/inquiries'));
-app.use('/api/users', require('./routes/users'));
+app.use('/api/auth', require('./routes/authRoutes'));
+app.use('/api/courses', require('./routes/courseRoutes'));
+app.use('/api/student', require('./routes/studentPortal'));
+app.use('/api/students', require('./routes/studentRoutes'));
+app.use('/api/applications', require('./routes/applicationsRoutes'));
+app.use('/api/inquiries', require('./routes/inquiriesRoutes'));
+app.use('/api/users', require('./routes/userRoutes'));
+app.use('/api/exams', require('./routes/examRoutes'));
+app.use('/api/resources', require('./routes/resourceRoutes'))
+app.use('/api/admissions', require('./routes/admissionRoutes'));
+app.use('/api/franchise', require('./routes/franchiseRoutes'));
 
 connectDB(); 
 

@@ -6,7 +6,8 @@ const courseSchema = new mongoose.Schema({
   description: { type: String },
   duration: { type: String },
   fee: { type: Number },
-  eligibility: { type: String }
+  eligibility: { type: String },
+  
 });
 
 module.exports = mongoose.model('Course', courseSchema);
