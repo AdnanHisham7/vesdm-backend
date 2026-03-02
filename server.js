@@ -11,11 +11,11 @@ dotenv.config();
 const app = express();
 
 // HTTP request logger
-// if (process.env.NODE_ENV === 'development') {
-//   app.use(morgan('dev'));
-// } else {
-//   app.use(morgan('combined'));
-// }
+if (process.env.NODE_ENV === 'development') {
+  app.use(morgan('dev'));
+} else {
+  app.use(morgan('combined'));
+}
 
 // CORS configuration to allow credentials
 const allowedOrigins = process.env.ALLOWED_ORIGINS 

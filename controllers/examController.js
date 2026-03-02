@@ -184,7 +184,6 @@ const getOpenExams = async (req, res) => {
 // 2. General Get Exams (Modified to handle ?status=open)
 const getExams = async (req, res) => {
   try {
-    console.log("Consoled getExams with query:", req.query);
     const { status } = req.query;
     let query = {};
 

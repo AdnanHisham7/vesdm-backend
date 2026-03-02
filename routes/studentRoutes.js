@@ -16,8 +16,9 @@ const {
   studentAccess,
   enrollExistingStudent,
   getCourseStudents,
+  deleteStudent,
 } = require("../controllers/studentController");
-const { protect, franchiseeOrAdmin } = require("../middleware/auth");
+const { protect, adminOnly, franchiseeOrAdmin } = require("../middleware/auth");
 
 const storage = multer.diskStorage({
   destination: "uploads/",
@@ -40,7 +41,8 @@ router
 router
   .route("/:id")
   .get(protect, franchiseeOrAdmin, getStudent)
-  .put(protect, franchiseeOrAdmin, updateStudent);
+  .put(protect, franchiseeOrAdmin, updateStudent)
+  .delete(protect, adminOnly, deleteStudent);
 
 router.post(
   "/:id/upload-documents",
