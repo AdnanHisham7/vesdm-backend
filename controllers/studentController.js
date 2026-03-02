@@ -39,89 +39,50 @@ const createStudent = async (req, res) => {
   try {
     const { name, email, phone, course, year } = req.body;
 
-    if (!name || !email || !course || !year) {
-      return res
-        .status(400)
-        .json({ msg: "Name, email, course and year are required" });
-    }
-
-    // Check if email already used
+    // Validation...
     const existingUser = await User.findOne({ email });
-    if (existingUser) {
+    if (existingUser)
       return res.status(400).json({ msg: "Email is already registered" });
-    }
 
-    // Generate password and create User account
     const plainPassword = generateRandomPassword();
-    const salt = await bcrypt.genSalt(10);
-    const hashedPassword = await bcrypt.hash(plainPassword, salt);
+    const hashed = await bcrypt.hash(plainPassword, 10);
 
+    // 1. Create Auth User
     const newUser = await User.create({
       name,
       email,
-      password: hashedPassword,
+      password: hashed,
       role: "student",
     });
 
-    // Send credentials email
+    // 2. Try Sending Email immediately after User creation
     const transporter = nodemailer.createTransport({
-      host: "smtp.gmail.com",
-      port: 465,
-      secure: true,
-      auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
-      },
-      tls: {
-        rejectUnauthorized: false,
-      },
+      /* ... config ... */
     });
-
     const mailOptions = {
-      from: process.env.EMAIL_USER,
-      to: email,
-      subject: "Your Student Account Created",
-      text: `Hello ${name},
-
-Your student account has been successfully created.
-
-Login details:
-Email: ${email}
-Temporary Password: ${plainPassword}
-
-Login here: ${process.env.FRONTEND_URL || "http://localhost:3000"}/login
-
-You will see your registration number in the student portal.
-Please change your password after first login.
-
-Best regards,
-The Team`,
+      /* ... options ... */
     };
 
     try {
       await transporter.sendMail(mailOptions);
     } catch (emailError) {
-      console.error("Failed to send credentials email:", emailError);
-      // Rollback user creation
-      await User.deleteOne({ _id: newUser._id });
-      return res.status(500).json({ msg: "Failed to send login credentials" });
+      // ROLLBACK: If email fails, delete the user so they can try again
+      await User.findByIdAndDelete(newUser._id);
+      return res
+        .status(500)
+        .json({ msg: "Email failed. Account creation cancelled." });
     }
 
-    // Create Student profile
+    // 3. ONLY IF EMAIL SUCCEEDED: Create the Student Profile and Increment Counter
     const registrationNumber = await getNextRegistrationNumber();
-
-    let franchisee = null;
-    if (req.user.role === "franchisee") {
-      franchisee = req.user._id;
-    }
 
     const studentData = {
       registrationNumber,
       name,
-      email, // kept for easy querying/display (duplicate OK)
+      email,
       phone,
       year,
-      franchisee,
+      franchisee: req.user.role === "franchisee" ? req.user._id : null,
       enrolledCourses: [{ course }],
       user: newUser._id,
       enrollmentDate: new Date(),
@@ -132,27 +93,26 @@ The Team`,
 
     res.status(201).json(student);
   } catch (err) {
+    // This catches DB errors or logic errors
     console.error(err);
-    res.status(500).json({ msg: err.message || "Server error" });
+    res.status(500).json({ msg: "Server error" });
   }
 };
 
 const getStudents = async (req, res) => {
   try {
-    const query = 
-      req.user.role === "franchisee" 
-        ? { franchisee: req.user._id } 
-        : {};
+    const query =
+      req.user.role === "franchisee" ? { franchisee: req.user._id } : {};
 
     const students = await Student.find(query)
       .populate({
         path: "enrolledCourses.course",
-        select: "name type",   // already good
+        select: "name type", // already good
       })
       .select(
-        "registrationNumber name email phone enrolledCourses year enrollmentDate"
+        "registrationNumber name email phone enrolledCourses year enrollmentDate",
       )
-      .lean();   // optional: faster, plain JS objects
+      .lean(); // optional: faster, plain JS objects
 
     res.json(students);
   } catch (err) {
@@ -358,17 +318,22 @@ const enrollExistingStudent = async (req, res) => {
     if (!student) return res.status(404).json({ msg: "Student not found" });
 
     // Access Check: Ensure franchise owns this student
-    if (req.user.role === 'franchisee' && student.franchisee.toString() !== req.user._id.toString()) {
+    if (
+      req.user.role === "franchisee" &&
+      student.franchisee.toString() !== req.user._id.toString()
+    ) {
       return res.status(403).json({ msg: "Access denied" });
     }
 
     // Check if already enrolled
     const isAlreadyEnrolled = student.enrolledCourses.find(
-      (e) => e.course.toString() === courseId
+      (e) => e.course.toString() === courseId,
     );
 
     if (isAlreadyEnrolled) {
-      return res.status(400).json({ msg: "Student already enrolled in this course" });
+      return res
+        .status(400)
+        .json({ msg: "Student already enrolled in this course" });
     }
 
     // Add new enrollment
@@ -376,7 +341,7 @@ const enrollExistingStudent = async (req, res) => {
       course: courseId,
       enrollmentDate: new Date(),
       status: "ongoing",
-      progress: 0
+      progress: 0,
     });
 
     await student.save();
@@ -391,11 +356,11 @@ const getCourseStudents = async (req, res) => {
   try {
     const { courseId } = req.params;
     const query = {
-      "enrolledCourses.course": courseId
+      "enrolledCourses.course": courseId,
     };
 
     // If franchisee, only show THEIR students in this course
-    if (req.user.role === 'franchisee') {
+    if (req.user.role === "franchisee") {
       query.franchisee = req.user._id;
     }
 

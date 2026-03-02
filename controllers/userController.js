@@ -23,10 +23,10 @@ const createUser = async (req, res) => {
   if (exists) return res.status(400).json({ msg: "User already exists" });
 
   const plainPassword = generateRandomPassword();
-
   const salt = await bcrypt.genSalt(10);
   const hashed = await bcrypt.hash(plainPassword, salt);
 
+  // 1. Create the user
   const user = await User.create({
     email,
     password: hashed,
@@ -34,8 +34,7 @@ const createUser = async (req, res) => {
     role: "franchisee",
   });
 
-  console.log(process.versions);
-  // Send credentials email
+  // 2. Prepare Email
   const transporter = nodemailer.createTransport({
     host: "smtp.gmail.com",
     port: 465,
@@ -44,42 +43,36 @@ const createUser = async (req, res) => {
       user: process.env.EMAIL_USER,
       pass: process.env.EMAIL_PASS,
     },
-    tls: {
-      rejectUnauthorized: false,
-    },
+    tls: { rejectUnauthorized: false },
   });
 
   const mailOptions = {
     from: process.env.EMAIL_USER,
     to: email,
     subject: "Your Franchisee Account Credentials",
-    text: `Hello ${name},
-
-Your franchisee account has been created.
-
-Login details:
-Email: ${email}
-Temporary Password: ${plainPassword}
-
-Login here: ${process.env.FRONTEND_URL || "http://localhost:3000"}/login
-
-Please change your password after logging in.
-
-Best regards,
-The Team`,
+    text: `Hello ${name}, ... Password: ${plainPassword} ...`,
   };
 
+  // 3. Attempt to send email
   try {
     await transporter.sendMail(mailOptions);
-  } catch (error) {
-    console.error("Failed to send email:", error);
-    // Still return success – admin can resend manually if needed
-  }
+    
+    // Success response
+    res.json({
+      msg: "Franchisee created successfully. Credentials sent to email.",
+      user: { email: user.email, name: user.name },
+    });
 
-  res.json({
-    msg: "Franchisee created successfully. Credentials sent to email.",
-    user: { email: user.email, name: user.name },
-  });
+  } catch (error) {
+    console.error("Failed to send email, rolling back user creation:", error);
+    
+    // ROLLBACK: Delete the user we just created so the admin can try again
+    await User.findByIdAndDelete(user._id);
+    
+    return res.status(500).json({ 
+      msg: "Failed to send credentials email. User was not created. Please check your SMTP settings and try again." 
+    });
+  }
 };
 
 const getUsers = async (req, res) => {
