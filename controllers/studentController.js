@@ -406,6 +406,22 @@ const getCourseStudents = async (req, res) => {
   }
 };
 
+const deleteStudent = async (req, res) => {
+  try {
+    const student = await Student.findById(req.params.id);
+    if (!student) return res.status(404).json({ msg: "Student not found" });
+
+    // Delete linked User account if exists
+    if (student.user) {
+      await User.findByIdAndDelete(student.user);
+    }
+
+    await Student.findByIdAndDelete(req.params.id);
+    res.json({ msg: "Student deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
 
 module.exports = {
   createStudent,
@@ -421,4 +437,5 @@ module.exports = {
   studentAccess,
   enrollExistingStudent,
   getCourseStudents,
+  deleteStudent,
 };

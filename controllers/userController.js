@@ -87,4 +87,18 @@ const getUsers = async (req, res) => {
   res.json(users);
 };
 
-module.exports = { createUser, getUsers };
+const deleteUser = async (req, res) => {
+  try {
+    const user = await User.findById(req.params.id);
+    if (!user) return res.status(404).json({ msg: "User not found" });
+    if (user.role === "admin")
+      return res.status(403).json({ msg: "Cannot delete an admin account" });
+
+    await User.findByIdAndDelete(req.params.id);
+    res.json({ msg: "Franchisee deleted successfully" });
+  } catch (err) {
+    res.status(500).json({ msg: err.message });
+  }
+};
+
+module.exports = { createUser, getUsers, deleteUser };
