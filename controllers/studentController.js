@@ -55,25 +55,7 @@ const createStudent = async (req, res) => {
       role: "student",
     });
 
-    // 2. Try Sending Email immediately after User creation
-    const transporter = nodemailer.createTransport({
-      /* ... config ... */
-    });
-    const mailOptions = {
-      /* ... options ... */
-    };
-
-    try {
-      await transporter.sendMail(mailOptions);
-    } catch (emailError) {
-      // ROLLBACK: If email fails, delete the user so they can try again
-      await User.findByIdAndDelete(newUser._id);
-      return res
-        .status(500)
-        .json({ msg: "Email failed. Account creation cancelled." });
-    }
-
-    // 3. ONLY IF EMAIL SUCCEEDED: Create the Student Profile and Increment Counter
+    // 2. Create the Student Profile and Increment Counter
     const registrationNumber = await getNextRegistrationNumber();
 
     const studentData = {
@@ -91,9 +73,36 @@ const createStudent = async (req, res) => {
     const student = await Student.create(studentData);
     await student.populate("enrolledCourses.course");
 
+    // 3. Try Sending Email — failure does NOT block registration
+    try {
+      const transporter = nodemailer.createTransport({
+        service: "gmail",
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS,
+        },
+      });
+
+      await transporter.sendMail({
+        from: `"VESDM" <${process.env.EMAIL_USER}>`,
+        to: email,
+        subject: "Welcome to VESDM – Your Login Credentials",
+        html: `
+          <h2>Welcome to VESDM, ${name}!</h2>
+          <p>Your student account has been created successfully.</p>
+          <p><strong>Registration Number:</strong> ${registrationNumber}</p>
+          <p><strong>Email:</strong> ${email}</p>
+          <p><strong>Temporary Password:</strong> ${plainPassword}</p>
+          <p>Please login at <a href="${process.env.FRONTEND_URL}/portal/student">${process.env.FRONTEND_URL}/portal/student</a> and change your password after first login.</p>
+        `,
+      });
+    } catch (emailError) {
+      // Log the error but DO NOT fail the request — student is already saved
+      console.error("Email sending failed (student still registered):", emailError.message);
+    }
+
     res.status(201).json(student);
   } catch (err) {
-    // This catches DB errors or logic errors
     console.error(err);
     res.status(500).json({ msg: "Server error" });
   }
