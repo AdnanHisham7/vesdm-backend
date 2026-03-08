@@ -39,7 +39,7 @@ const createStudent = async (req, res) => {
   try {
     const { name, email, phone, course, year } = req.body;
 
-    // Validation...
+    // Validation
     const existingUser = await User.findOne({ email });
     if (existingUser)
       return res.status(400).json({ msg: "Email is already registered" });
@@ -47,16 +47,42 @@ const createStudent = async (req, res) => {
     const plainPassword = generateRandomPassword();
     const hashed = await bcrypt.hash(plainPassword, 10);
 
-    // 1. Create Auth User
+    const registrationNumber = await getNextRegistrationNumber();
+
+    // Email transporter
+    const transporter = nodemailer.createTransport({
+      service: "gmail",
+      auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS,
+      },
+    });
+
+    // 1️⃣ Send Email FIRST
+    await transporter.sendMail({
+      from: `"VESDM" <${process.env.EMAIL_USER}>`,
+      to: email,
+      subject: "Welcome to VESDM – Your Login Credentials",
+      html: `
+        <h2>Welcome to VESDM, ${name}!</h2>
+        <p>Your student account has been created successfully.</p>
+        <p><strong>Registration Number:</strong> ${registrationNumber}</p>
+        <p><strong>Email:</strong> ${email}</p>
+        <p><strong>Temporary Password:</strong> ${plainPassword}</p>
+        <p>Please login at 
+        <a href="${process.env.FRONTEND_URL}/portal/student">
+        ${process.env.FRONTEND_URL}/portal/student</a>
+        and change your password after first login.</p>
+      `,
+    });
+
+    // 2️⃣ Only runs if email SUCCESS
     const newUser = await User.create({
       name,
       email,
       password: hashed,
       role: "student",
     });
-
-    // 2. Create the Student Profile and Increment Counter
-    const registrationNumber = await getNextRegistrationNumber();
 
     const studentData = {
       registrationNumber,
@@ -73,38 +99,14 @@ const createStudent = async (req, res) => {
     const student = await Student.create(studentData);
     await student.populate("enrolledCourses.course");
 
-    // 3. Try Sending Email — failure does NOT block registration
-    try {
-      const transporter = nodemailer.createTransport({
-        service: "gmail",
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS,
-        },
-      });
-
-      await transporter.sendMail({
-        from: `"VESDM" <${process.env.EMAIL_USER}>`,
-        to: email,
-        subject: "Welcome to VESDM – Your Login Credentials",
-        html: `
-          <h2>Welcome to VESDM, ${name}!</h2>
-          <p>Your student account has been created successfully.</p>
-          <p><strong>Registration Number:</strong> ${registrationNumber}</p>
-          <p><strong>Email:</strong> ${email}</p>
-          <p><strong>Temporary Password:</strong> ${plainPassword}</p>
-          <p>Please login at <a href="${process.env.FRONTEND_URL}/portal/student">${process.env.FRONTEND_URL}/portal/student</a> and change your password after first login.</p>
-        `,
-      });
-    } catch (emailError) {
-      // Log the error but DO NOT fail the request — student is already saved
-      console.error("Email sending failed (student still registered):", emailError.message);
-    }
-
     res.status(201).json(student);
+
   } catch (err) {
-    console.error(err);
-    res.status(500).json({ msg: "Server error" });
+    console.error("Student creation failed:", err.message);
+
+    res.status(500).json({
+      msg: "Student registration failed. Email not sent.",
+    });
   }
 };
 
